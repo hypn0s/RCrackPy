@@ -31,7 +31,7 @@ CC = g++
 OPTIMIZATION = -O3
 INCLUDES = -I.
 CFLAGS = -Wall -ansi $(INCLUDES) $(OPTIMIZATION) -c $(DEBUG) -fPIC -Wunused-result
-LFLAGS = -Wall -ansi -filt $(INCLUDES) $(OPTIMIZATION) $(DEBUG)
+LFLAGS = -Wall -ansi $(INCLUDES) $(OPTIMIZATION) $(DEBUG)
 LIBS = -L/lib -L/usr/lib -lcrypto -lpthread
 OBJS = BaseRTReader.o ChainWalkContext.o ChainWalkSet.o CrackEngine.o \
 	fast_md5.o HashAlgorithm.o HashRoutine.o HashSet.o lm2ntlm.o fast_md4.o \

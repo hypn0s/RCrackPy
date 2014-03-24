@@ -1,5 +1,5 @@
 /*
- * rcracki_mt is a multithreaded implementation and fork of the original 
+ * rcracki_mt is a multithreaded implementation and fork of the original
  * RainbowCrack
  *
  * Copyright (C) Zhu Shuanglei <shuanglei@hotmail.com>
@@ -11,15 +11,18 @@
  * Copyright 2011 Logan Watt <logan.watt@gmail.com>
  * Copyright 2011 Jan Kyska
  * Copyright 2012 Moloch <moloch38@gmail.com>
+ * Copyright 2014 Julien Legras <julien.legras@synacktiv.com>
  *
  * Modified by Martin Westergaard J�rgensen <martinwj2005@gmail.com> to support  * indexed and hybrid tables
  *
  * Modified by neinbrucke to support multi threading and a bunch of other stuff :)
  *
- * 2009-01-04 - <james.dickson@comhem.se> - Slightly modified (or "fulhack" as 
+ * 2009-01-04 - <james.dickson@comhem.se> - Slightly modified (or "fulhack" as
  * we say in sweden)  to support cain .lst files.
  *
  * 2012 - Modified by Moloch to create Python bindings
+ *
+ * 2014 - Added MySQL SHA1 option to Moloch python bindings
  *
  * This file is part of rcracki_mt.
  *
@@ -375,15 +378,18 @@ std::string version(bool debug)
 }
 
 /* Gathers results and returns a Python dictionary */
-boost::python::dict fCrackerResults(std::vector<std::string> verifiedHashes, CHashSet hashSet)
+boost::python::dict fCrackerResults(std::vector<std::string> verifiedHashes, std::vector<std::string> sha1AsMysqlSha1, CHashSet hashSet)
 {
     /* Gather results */
     boost::python::dict results;
+    bool mysqlsha1format = !sha1AsMysqlSha1.empty();
 	for (uint32 index = 0; index < verifiedHashes.size(); index++) {
 		std::string sPlain;
 		std::string sBinary;
 		std::string tmpHash = verifiedHashes[index];
-
+		if (mysqlsha1format) {
+			tmpHash = sha1AsMysqlSha1[index];
+		}
 		if (!hashSet.GetPlain(tmpHash, sPlain, sBinary)) {
 			sPlain = "<Not Found>";
 			sBinary = "<Not Found>";
@@ -484,7 +490,7 @@ boost::python::dict otherResults(std::vector<std::string>& vLMHash,
 boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 		std::string outputFile, std::string sSessionPathName,
 		std::string sProgressPathName, std::string sPrecalcPathName,
-		bool debug, bool keepPrecalcFiles, int enableGPU, unsigned int maxThreads,
+		bool mysqlsha1format, bool debug, bool keepPrecalcFiles, int enableGPU, unsigned int maxThreads,
 		uint64 maxMem)
 {
 #ifndef _WIN32
@@ -513,9 +519,28 @@ boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 			throw boost::python::error_already_set();
 		}
 	}
+
+	std::vector<std::string> sha1AsMysqlSha1;
 	for (unsigned int index = 0; index < verifiedHashes.size(); ++index)
 	{
-		hashSet.AddHash(verifiedHashes[index]);
+		if (mysqlsha1format)
+		{
+			HASHROUTINE hashRoutine;
+			CHashRoutine hr;
+			std::string hashName = "sha1";
+			int hashLen = 20;
+			hr.GetHashRoutine( hashName, hashRoutine, hashLen );
+			unsigned char* plain = new unsigned char[hashLen*2];
+			memcpy( plain, HexToBinary(verifiedHashes[index].c_str(), hashLen*2 ).c_str(), hashLen );
+			unsigned char hash_output[MAX_HASH_LEN];
+			hashRoutine( plain, hashLen, hash_output);
+			sha1AsMysqlSha1.push_back(HexToStr(hash_output, hashLen));
+			hashSet.AddHash( sha1AsMysqlSha1[index] );
+		}
+		else
+		{
+			hashSet.AddHash(verifiedHashes[index]);
+		}
 	}
 	/* Load rainbow tables */
 	GetTableList(pathToTables, vPathName);
@@ -527,7 +552,8 @@ boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 	CCrackEngine crackEngine;
 	crackEngine.setSession(sSessionPathName, sProgressPathName, sPrecalcPathName, keepPrecalcFiles);
 	crackEngine.Run(vPathName, hashSet, maxThreads, maxMem, resumeSession, debug, enableGPU);
-    boost::python::dict results = fCrackerResults(verifiedHashes, hashSet);
+	boost::python::dict results;
+	results = fCrackerResults(verifiedHashes, sha1AsMysqlSha1, hashSet);
     return results;
 }
 
@@ -637,12 +663,13 @@ BOOST_PYTHON_MODULE(RainbowCrack)
 	def("crack",
 		crack,
 		(
-			arg("hahes"), // Python list of hashes
+			arg("hashes"), // Python list of hashes
 			arg("pathToTables"),
 			arg("outputFile") = "",
 			arg("sSessionPathName") = "rcracki.session",
 			arg("sProgressPathName") = "rcracki.progress",
 			arg("sPrecalcPathName") = "rcracki.precalc",
+			arg("mysqlsha1format") = false,
 			arg("debug") = false,
 			arg("keepPrecalcFiles") = false,
 			arg("enableGPU") = 0,
