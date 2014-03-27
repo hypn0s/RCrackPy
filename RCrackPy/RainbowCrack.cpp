@@ -57,6 +57,9 @@
 	#include <stdio.h>
 	#include <unistd.h>
 	#include <dirent.h>
+	#include <iostream>
+	#include <fstream>
+	#include <cstdio>
 	const unsigned int TRACE_SIZE = 10;
 #endif
 
@@ -489,7 +492,7 @@ boost::python::dict otherResults(std::vector<std::string>& vLMHash,
 /* Cracks a single hash and returns a Python dictionary */
 boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 		std::string outputFile, std::string sSessionPathName,
-		std::string sProgressPathName, std::string sPrecalcPathName,
+		std::string sProgressPathName, std::string sPrecalcPathName, std::string output,
 		bool mysqlsha1format, bool debug, bool keepPrecalcFiles, int enableGPU, unsigned int maxThreads,
 		uint64 maxMem)
 {
@@ -500,6 +503,10 @@ boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 	bool resumeSession = false; // Sessions not currently supported
 	std::vector<std::string> verifiedHashes;
 	std::vector<std::string> vPathName;
+	if ( !output.empty() )
+	{
+		freopen(output.c_str(), "a", stdout);
+	}
 	if ( debug )
 	{
 		std::cout << "[Debug]: List contains " << boost::python::len(hashes) << " hash(es)" << std::endl;
@@ -513,7 +520,7 @@ boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 		else
 		{
 			std::ostringstream stringBuilder;
-			stringBuilder << "Invalid hash: " << sHash.c_str();
+			stringBuilder << "Invalid hash: <" << sHash.c_str() << ">";
 			std::string message = stringBuilder.str();
 			PyErr_SetString(PyExc_ValueError, message.c_str());
 			throw boost::python::error_already_set();
@@ -560,7 +567,7 @@ boost::python::dict crack(boost::python::list& hashes, std::string pathToTables,
 /* Crack a PWDUMP file */
 boost::python::dict pwdump(std::string pwdumpFilePath, std::string pathToTables,
 		std::string outputFile, std::string sSessionPathName,
-		std::string sProgressPathName, std::string sPrecalcPathName,
+		std::string sProgressPathName, std::string sPrecalcPathName, std::string output,
 		bool debug, bool keepPrecalcFiles, int enableGPU, unsigned int maxThreads,
 		uint64 maxMem)
 {
@@ -571,6 +578,10 @@ boost::python::dict pwdump(std::string pwdumpFilePath, std::string pathToTables,
 	std::vector<std::string> vPathName;
 	bool resumeSession = false; // Sessions not currently supported
 	CHashSet hashSet;
+	if ( !output.empty() )
+	{
+		freopen(output.c_str(), "a", stdout);
+	}
 	if ( debug )
 	{
 		version(debug);
@@ -669,6 +680,7 @@ BOOST_PYTHON_MODULE(RainbowCrack)
 			arg("sSessionPathName") = "rcracki.session",
 			arg("sProgressPathName") = "rcracki.progress",
 			arg("sPrecalcPathName") = "rcracki.precalc",
+			arg("output") = NULL,
 			arg("mysqlsha1format") = false,
 			arg("debug") = false,
 			arg("keepPrecalcFiles") = false,
@@ -687,6 +699,7 @@ BOOST_PYTHON_MODULE(RainbowCrack)
 			arg("sSessionPathName") = "rcracki.session",
 			arg("sProgressPathName") = "rcracki.progress",
 			arg("sPrecalcPathName") = "rcracki.precalc",
+			arg("output") = NULL,
 			arg("debug") = false,
 			arg("keepPrecalcFiles") = false,
 			arg("enableGPU") = 0,
